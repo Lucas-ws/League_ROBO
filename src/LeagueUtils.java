@@ -43,10 +43,11 @@ public class LeagueUtils {
                 bot.mouseMove(found.x + 50, found.y + 100);
                 bot.keyPress(81);
                 bot.keyRelease(81);
-                Thread.sleep(4000);
+                Thread.sleep(500);
                 //mainText.setText("Queue Accepted");
                 System.out.println(found.w + " " + found.y);
                 bot.mouseMove((int)old.getX(), (int)old.getY());
+                Thread.sleep(4000);
             }
             else{
                 System.out.println("cant find");

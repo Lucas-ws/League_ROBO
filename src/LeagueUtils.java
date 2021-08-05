@@ -19,10 +19,14 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.plaf.basic.BasicToggleButtonUI;
 
 import com.google.gson.Gson;
+import com.tulskiy.keymaster.common.HotKey;
+import com.tulskiy.keymaster.common.HotKeyListener;
+import com.tulskiy.keymaster.common.Provider;
 
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -58,15 +62,33 @@ public class LeagueUtils {
     private static int spellLevel = 0;
     private static HttpUriRequest request;
     private static CloseableHttpResponse response;
-    private static int[] order = { 81, 87, 69, 81, 81, 82, 81, 87, 81, 87, 82, 87, 87, 69, 69, 82, 69, 69 };
+    private static final int Q = 81;
+    private static final int W = 87;
+    private static final int E = 69;
+    private static final int R = 82;
+    private static final int D = 70;
+    private static final int F = 68;
+    private static final int CTRL = 17;
+    private static int[] oDer = { Q, W, E, Q, Q, R, Q, W, Q, W, R, W, W, E, E, R, E, E };
     private static boolean firing = false;
-
     public static void main(String[] args) throws IOException, InterruptedException {
-        // client = HttpClients
-        // .custom()
-        // .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-        // .setHostnameVerifier(new AllowAllHostnameVerifier())
-        // .build();
+
+        Provider provider = Provider.getCurrentProvider(true);
+        HotKeyListener itemListener = new HotKeyListener(){
+            @Override
+            public void onHotKey(HotKey hotKey) {
+                if(running){
+                    System.out.println("STOPPING");
+                    running = false;
+                }
+                else{
+                    System.out.println("STARTING");
+                    running = true;
+                }
+            }
+        };
+        provider.register(KeyStroke.getKeyStroke("0"), itemListener);
+        
         request = new HttpGet("https://127.0.0.1:2999/liveclientdata/allgamedata");
         try {
             client = HttpClients.custom().setSSLHostnameVerifier(new NoopHostnameVerifier())
@@ -77,9 +99,13 @@ public class LeagueUtils {
             e1.printStackTrace();
         }
 
-        response = client.execute(request);
-        d = gs.fromJson(IOUtils.toString(response.getEntity().getContent(), "UTF-8"), Root.class);
-        response.close();
+        do{
+            getData();
+            waitFor(1000);
+        } while(response == null);
+
+        System.out.println("Connection made!");
+
         for (AllPlayer p : d.allPlayers) {
             if (p.championName == "Morgana") {
                 ap = d.allPlayers.indexOf(p);
@@ -93,117 +119,155 @@ public class LeagueUtils {
         }
     }
 
+    private static Boolean getData() {
+        try {
+            response = client.execute(request);
+            d = gs.fromJson(IOUtils.toString(response.getEntity().getContent(), "UTF-8"), Root.class);
+            response.close();
+            return (d == null);
+
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static void waitFor(int time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Use sikuli to search for the accept button on the screen. If found, click it.
      */
-    private static void search() {
+    private static void searchEnemy() {
         try {
             Match found = s.find("/images/5.png");
             if (found != null) { // found
                 firing = true;
+
                 bot.mouseMove(found.x + 50, found.y + 100);
 
-                bot.keyPress(81);
-                Thread.sleep(100);
-                bot.keyRelease(81);
-                Thread.sleep(100);
+                bot.keyPress(Q);
+                waitFor(100);
+                bot.keyRelease(Q);
+                waitFor(100);
 
-                bot.keyPress(87);
-                Thread.sleep(100);
-                bot.keyRelease(87);
-                Thread.sleep(100);
+                bot.keyPress(W);
+                waitFor(100);
+                bot.keyRelease(W);
+                waitFor(100);
+
                 if (spellLevel > 5) {
-                    bot.keyPress(82);
-                    Thread.sleep(100);
-                    bot.keyRelease(82);
-                    Thread.sleep(100);
+                    bot.keyPress(R);
+                    waitFor(100);
+                    bot.keyRelease(R);
+                    waitFor(100);
                 }
                 firing = false;
                 // System.out.println(found.w + " " + found.y);
-                Thread.sleep(1000);
-            } else {
-                // System.out.println("cant find");
+                waitFor(1000);
             }
-        } catch (FindFailed | InterruptedException e) {
-            // System.out.println(e);
+        } catch (FindFailed e) {
         }
     }
 
-    private static void searchfriendly() {
+    private static void searchFriendly() {
         try {
             Match found = s.find("/images/f2.png");
             if (found != null) { // found
+                firing = true;
+
                 bot.mouseMove(found.x + 50, found.y + 100);
 
-                bot.keyPress(69);
-                Thread.sleep(100);
-                bot.keyRelease(69);
+                bot.keyPress(E);
+                waitFor(100);
+                bot.keyRelease(E);
 
-                Thread.sleep(5000);
-            } else {
-                // System.out.println("cant find");
+                firing = false;
+
+                waitFor(5000);
             }
-        } catch (FindFailed | InterruptedException e) {
-            // System.out.println(e);
+        } catch (FindFailed e) {
         }
     }
 
     private static void move() {
         bot.mouseMove(2240, 841);
         // bot.mouseMove(2250, 990);
-        try {
-            Thread.sleep(100);
-            bot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
-            Thread.sleep(100);
-            bot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        waitFor(100);
+        bot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
+        waitFor(100);
+        bot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+        waitFor(100);
+    }
+
+    private static void retreat() {
+        if((last - d.activePlayer.championStats.currentHealth) / d.activePlayer.championStats.maxHealth > 0.15){
+            System.out.println("retreating");
+            bot.keyPress(D);
+            waitFor(100);
+            bot.keyPress(D);
+            waitFor(500);
+            bot.keyPress(F);
+            waitFor(100);
+            bot.keyPress(F);
+            runaway();
         }
-    }
-
-    private static Boolean retreat() {
-        Boolean b = (last - d.activePlayer.championStats.currentHealth) / d.activePlayer.championStats.maxHealth > 0.15;
         last = d.activePlayer.championStats.currentHealth;
-        return b;
     }
 
-    private static boolean healthLow() {
-        return d.activePlayer.championStats.currentHealth < (d.activePlayer.championStats.maxHealth / 5.0);
+    private static void healthLow() {
+        if (d.activePlayer.championStats.currentHealth < (d.activePlayer.championStats.maxHealth / 5.0)) {
+            System.out.println("low health!");
+            runaway();
+            bot.keyPress(66);
+            waitFor(100);
+            bot.keyRelease(66);
+            System.out.println("waiting For 12");
+            waitFor(12000);
+            buy();
+        }
     }
 
     private static void runaway() {
         System.out.println("running away");
         bot.mouseMove(2028, 1052);
         bot.mousePress(InputEvent.BUTTON2_DOWN_MASK);
-        try {
-            Thread.sleep(100);
-            bot.mouseRelease(InputEvent.BUTTON2_DOWN_MASK);
-            Thread.sleep(4000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        waitFor(100);
+        bot.mouseRelease(InputEvent.BUTTON2_DOWN_MASK);
+        waitFor(4000);
     }
 
     private static void buy() {
-        try {
-            System.out.println("buying");
-            bot.keyPress(80);
-            Thread.sleep(100);
-            bot.keyRelease(80);
-            bot.mouseMove(740, 520);
-            bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-            Thread.sleep(100);
-            bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-            Thread.sleep(100);
-            bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-            Thread.sleep(100);
-            bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-            bot.keyPress(80);
-            bot.keyRelease(80);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        System.out.println("buying");
+        bot.keyPress(80);
+        waitFor(100);
+        bot.keyRelease(80);
+        bot.mouseMove(740, 520);
+        bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+        waitFor(100);
+        bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        waitFor(100);
+        bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+        waitFor(100);
+        bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        bot.keyPress(80);
+        bot.keyRelease(80);
+    }
+
+    private static void level() {
+        System.out.println("leveling");
+        bot.keyPress(CTRL);
+        waitFor(200);
+        bot.keyPress(oDer[spellLevel]);
+        waitFor(200);
+        bot.keyRelease(oDer[spellLevel]);
+        waitFor(200);
+        bot.keyRelease(CTRL);
+        spellLevel++;
     }
 
     /**
@@ -235,97 +299,44 @@ public class LeagueUtils {
                     running = true;
                     toggle.setText("ON");
                     toggle.setBackground(ON_COLOR);
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException e1) {
-                        e1.printStackTrace();
-                    }
-                    new Thread(new Runnable() { // we need to run this in a new thread so UI events can continue
+                    waitFor(3000);
+                    new Thread(new Runnable() { // enemy search
                         public void run() {
-                            while (running) { // run until the button is clicked off
-                                search();
+                            while (running) { 
+                                searchEnemy();
                             }
                         }
                     }).start();
-                    new Thread(new Runnable() { // we need to run this in a new thread so UI events can continue
+                    new Thread(new Runnable() { // friendly search
                         public void run() {
-                            while (running) { // run until the button is clicked off
-                                searchfriendly();
+                            while (running) {
+                                searchFriendly();
                             }
                         }
                     }).start();
-                    new Thread(new Runnable() { // we need to run this in a new thread so UI events can continue
+                    new Thread(new Runnable() { // main loop
                         public void run() {
                             buy();
                             while (running) { // run until the button is clicked off
-                                try {
-                                    response = client.execute(request);
-                                    d = gs.fromJson(IOUtils.toString(response.getEntity().getContent(), "UTF-8"),
-                                            Root.class);
-                                    response.close();
-                                    if (d == null) {
-                                        continue;
-                                    }
-
-                                } catch (IOException e) {
-                                    e.printStackTrace();
+                                if (!getData()) {
                                     System.out.println("stopping");
                                     running = false;
+                                    break;
                                 }
-                                // d.gameData.gameTime > 70.0 &&
-                                if (d.gameData.gameTime > 70.0 && d.activePlayer.championStats.currentHealth >= 1) {
+                                if (d.gameData.gameTime > 70.0 && d.activePlayer.championStats.currentHealth >= 1) { // alive 
                                     if (d.allPlayers.get(ap).level != lastLevel) {
-                                        try {
-                                            System.out.println("leveling");
-                                            bot.keyPress(17);
-                                            Thread.sleep(200);
-                                            bot.keyPress(order[spellLevel]);
-                                            Thread.sleep(200);
-                                            bot.keyRelease(order[spellLevel]);
-                                            Thread.sleep(200);
-                                            bot.keyRelease(17);
-                                            spellLevel++;
-                                        } catch (InterruptedException e) {
-                                            e.printStackTrace();
-                                        }
-
+                                        level();
                                     }
-                                    if (healthLow()) {
-                                        System.out.println("low health!");
-                                        try {
-                                            runaway();
-                                            bot.keyPress(66);
-                                            Thread.sleep(100);
-                                            bot.keyRelease(66);
-                                            System.out.println("waiting 10");
-                                            Thread.sleep(12000);
-                                        } catch (InterruptedException e) {
-                                        }
-                                        buy();
-                                    } else if (retreat()) {
-                                        System.out.println("retreating");
-                                        bot.keyPress(70);
-                                        try {
-                                            Thread.sleep(100);
-                                            bot.keyPress(70);
-                                            Thread.sleep(500);
-                                            bot.keyPress(68);
-                                            Thread.sleep(100);
-                                            bot.keyPress(68);
-                                        } catch (InterruptedException e) {
-                                        }
-                                        runaway();
-                                    } else {
-                                        if (!firing) {
-                                            move();
-                                        }
+
+                                    healthLow();
+                                    retreat();
+
+                                    if (!firing) {
+                                        move();
                                     }
                                     lastLevel = d.allPlayers.get(ap).level;
                                 }
-                                try {
-                                    Thread.sleep(200);
-                                } catch (InterruptedException e) {
-                                }
+                                waitFor(200);
                             }
                         }
                     }).start();

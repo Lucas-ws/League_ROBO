@@ -44,7 +44,6 @@ public class LeagueUtils {
                 bot.keyPress(81);
                 bot.keyRelease(81);
                 Thread.sleep(500);
-                //mainText.setText("Queue Accepted");
                 System.out.println(found.w + " " + found.y);
                 bot.mouseMove((int)old.getX(), (int)old.getY());
                 Thread.sleep(4000);

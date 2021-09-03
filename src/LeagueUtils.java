@@ -30,6 +30,7 @@ import com.tulskiy.keymaster.common.Provider;
 
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.opencv.core.Point;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -51,17 +52,16 @@ public class LeagueUtils {
     private static Screen s = new Screen();
     private static JLabel mainText;
     private static Robot bot;
-    private static boolean retreating;
     private static double last = 0;
     private static int lastLevel = 0;
     private static int ap;
     private static CloseableHttpClient client;
     private static Gson gs = new Gson();
     private static Root d;
-    private static Boolean valid = false;
     private static int spellLevel = 0;
     private static HttpUriRequest request;
     private static CloseableHttpResponse response;
+    // key codes for ability levels
     private static final int Q = 81;
     private static final int W = 87;
     private static final int E = 69;
@@ -69,26 +69,57 @@ public class LeagueUtils {
     private static final int D = 70;
     private static final int F = 68;
     private static final int CTRL = 17;
+    private static final int FIVE = 53;
+    // ability level order
     private static int[] oDer = { Q, W, E, Q, Q, R, Q, W, Q, W, R, W, W, E, E, R, E, E };
     private static boolean firing = false;
+    private static final Point ENEMY_SPAWN = new Point(2240, 841);
+    private static final Point BOT_TOWER = new Point(2250, 990);
+    private static Point nextMove = ENEMY_SPAWN;
+    private static Boolean following = false;
+    private static JToggleButton toggle;
+
     public static void main(String[] args) throws IOException, InterruptedException {
 
         Provider provider = Provider.getCurrentProvider(true);
-        HotKeyListener itemListener = new HotKeyListener(){
+        HotKeyListener startstop = new HotKeyListener() {
             @Override
             public void onHotKey(HotKey hotKey) {
-                if(running){
+                if (running) {
                     System.out.println("STOPPING");
                     running = false;
-                }
-                else{
+                    toggle.doClick();
+                } else {
                     System.out.println("STARTING");
                     running = true;
+                    toggle.doClick();
                 }
             }
         };
-        provider.register(KeyStroke.getKeyStroke("0"), itemListener);
-        
+        provider.register(KeyStroke.getKeyStroke("0"), startstop);
+        HotKeyListener pathtoggle = new HotKeyListener() {
+            @Override
+            public void onHotKey(HotKey hotKey) {
+                if(nextMove == ENEMY_SPAWN){
+                    nextMove = BOT_TOWER;
+                    System.out.println("changing bot route");
+                }
+                else{
+                    nextMove = ENEMY_SPAWN;
+                    System.out.println("changing default route");
+                }
+            }
+        };
+        provider.register(KeyStroke.getKeyStroke("9"), pathtoggle);
+        HotKeyListener followset = new HotKeyListener() {
+            @Override
+            public void onHotKey(HotKey hotKey) {
+                following = !following;
+                System.out.println("toggle following");
+            }
+        };
+        provider.register(KeyStroke.getKeyStroke("8"), followset);
+
         request = new HttpGet("https://127.0.0.1:2999/liveclientdata/allgamedata");
         try {
             client = HttpClients.custom().setSSLHostnameVerifier(new NoopHostnameVerifier())
@@ -99,10 +130,10 @@ public class LeagueUtils {
             e1.printStackTrace();
         }
 
-        do{
+        do {
             getData();
             waitFor(1000);
-        } while(response == null);
+        } while (response == null);
 
         System.out.println("Connection made!");
 
@@ -119,18 +150,27 @@ public class LeagueUtils {
         }
     }
 
+    /**
+     * Query the client for game data.
+     * @return
+     */
     private static Boolean getData() {
         try {
             response = client.execute(request);
             d = gs.fromJson(IOUtils.toString(response.getEntity().getContent(), "UTF-8"), Root.class);
             response.close();
-            return (d == null);
+            return true;//(d.allPlayers == null);
 
         } catch (IOException e) {
+            System.out.println(e);
             return null;
         }
     }
 
+    /**
+     * Wait for a given number of ms.
+     * @param time
+     */
     private static void waitFor(int time) {
         try {
             Thread.sleep(time);
@@ -144,9 +184,14 @@ public class LeagueUtils {
      */
     private static void searchEnemy() {
         try {
-            Match found = s.find("/images/5.png");
+            Match found = s.find("/images/7.png");
             if (found != null) { // found
                 firing = true;
+                
+                if(found.x > 1160 && found.x < 1200 && found.y > 350 && found.y < 390){
+                    //System.out.println("ignoring, probably me");
+                    return;
+                }
 
                 bot.mouseMove(found.x + 50, found.y + 100);
 
@@ -174,9 +219,12 @@ public class LeagueUtils {
         }
     }
 
+    /**
+     * Shield allies on shield cool down.
+     */
     private static void searchFriendly() {
         try {
-            Match found = s.find("/images/f2.png");
+            Match found = s.find("/images/f.png");
             if (found != null) { // found
                 firing = true;
 
@@ -194,9 +242,37 @@ public class LeagueUtils {
         }
     }
 
+    /**
+     * Search for a friendly health bar to follow around.
+     */
+    private static Point searchFollow() {
+        try {
+            Match found = s.findText("/images/f2.png");
+            if (found != null) { // found-
+                return new Point(found.x + 10, found.y + 10);
+
+            }
+            return null;
+        } catch (FindFailed e) {
+            return null;
+        }
+    }
+
+    /**
+     * Perform a move by clicking the minimap.
+     */
     private static void move() {
-        bot.mouseMove(2240, 841);
-        // bot.mouseMove(2250, 990);
+        if (nextMove == null) {
+            System.out.println("default route");
+            nextMove = ENEMY_SPAWN;
+        }
+        if (following) {
+            Point found = searchFollow();
+            if(found != null){
+                nextMove = found;
+            }
+        }
+        bot.mouseMove((int) nextMove.x, (int) nextMove.y);
         waitFor(100);
         bot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
         waitFor(100);
@@ -204,10 +280,15 @@ public class LeagueUtils {
         waitFor(100);
     }
 
+    /**
+     * Runaway and use summoner spells.
+     */
     private static void retreat() {
-        if((last - d.activePlayer.championStats.currentHealth) / d.activePlayer.championStats.maxHealth > 0.15){
+        if (((last - d.activePlayer.championStats.currentHealth) / d.activePlayer.championStats.maxHealth > 0.15)
+                && ((last - d.activePlayer.championStats.currentHealth)
+                        / d.activePlayer.championStats.maxHealth < 0.50)) { // took damage
             System.out.println("retreating");
-            bot.keyPress(D);
+            bot.keyPress(D); // use summoners
             waitFor(100);
             bot.keyPress(D);
             waitFor(500);
@@ -215,10 +296,18 @@ public class LeagueUtils {
             waitFor(100);
             bot.keyPress(F);
             runaway();
+        } else if (((last - d.activePlayer.championStats.currentHealth)
+                / d.activePlayer.championStats.maxHealth < 0.50)) { // took a lot of damage
+            bot.keyPress(FIVE); // hour glass
+            waitFor(100);
+            bot.keyPress(FIVE);
         }
         last = d.activePlayer.championStats.currentHealth;
     }
 
+    /**
+     * Recall when we take a lot of damage.
+     */
     private static void healthLow() {
         if (d.activePlayer.championStats.currentHealth < (d.activePlayer.championStats.maxHealth / 5.0)) {
             System.out.println("low health!");
@@ -232,6 +321,9 @@ public class LeagueUtils {
         }
     }
 
+    /**
+     * Run away towards our nexus.
+     */
     private static void runaway() {
         System.out.println("running away");
         bot.mouseMove(2028, 1052);
@@ -241,6 +333,9 @@ public class LeagueUtils {
         waitFor(4000);
     }
 
+    /**
+     * Buy the recommended items from the shop.
+     */
     private static void buy() {
         System.out.println("buying");
         bot.keyPress(80);
@@ -258,6 +353,9 @@ public class LeagueUtils {
         bot.keyRelease(80);
     }
 
+    /**
+     * Level our skills according to the skill order.
+     */
     private static void level() {
         System.out.println("leveling");
         bot.keyPress(CTRL);
@@ -271,7 +369,7 @@ public class LeagueUtils {
     }
 
     /**
-     * setup the main GUI.a
+     * setup the main GUI.
      */
     private static void setupUI() {
         ImagePath.add(System.getProperty("user.dir"));
@@ -286,7 +384,7 @@ public class LeagueUtils {
 
         mainText = new JLabel("Disabled.", SwingConstants.CENTER);
         // toggle button setup
-        JToggleButton toggle = new JToggleButton("OFF");
+        toggle = new JToggleButton("OFF");
         toggle.setPreferredSize(new Dimension(150, 50));
         toggle.setUI(new BasicToggleButtonUI()); // lets us set the background colour on event
         toggle.setBackground(OFF_COLOR);
@@ -302,7 +400,7 @@ public class LeagueUtils {
                     waitFor(3000);
                     new Thread(new Runnable() { // enemy search
                         public void run() {
-                            while (running) { 
+                            while (running) {
                                 searchEnemy();
                             }
                         }
@@ -323,7 +421,7 @@ public class LeagueUtils {
                                     running = false;
                                     break;
                                 }
-                                if (d.gameData.gameTime > 70.0 && d.activePlayer.championStats.currentHealth >= 1) { // alive 
+                                if (d.gameData.gameTime > 70.0 && d.activePlayer.championStats.currentHealth >= 1) { // alive
                                     if (d.allPlayers.get(ap).level != lastLevel) {
                                         level();
                                     }

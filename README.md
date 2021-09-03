@@ -1,3 +1,12 @@
-# League-QAccept
+# League-ROBO
 
-GUI application made in java to automatically accept League of Legends queues when they pop!
+Simple League of Legends bot that can sort of play the game.
+
+Features:
+- Mid and ADC role support
+- Backing and buying
+- using summoner spells
+- Enemy and ally tracking
+- Ability leveling
+
+Made for fun please dont use this in an actual game.

@@ -10,7 +10,6 @@ import java.awt.event.InputEvent;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.IOException;
-import java.net.http.HttpClient;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -45,7 +44,7 @@ import org.sikuli.script.Screen;
 import Data.Data.AllPlayer;
 import Data.Data.Root;
 
-public class LeagueUtils {
+public class LeagueRobo {
     private static Color ON_COLOR = new Color(127, 227, 104);
     private static Color OFF_COLOR = new Color(224, 67, 104);
     private static boolean running = false;
